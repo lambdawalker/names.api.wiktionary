@@ -1,0 +1,4 @@
+# Non-secret local defaults. The orchestrator may override the port at launch.
+host: 127.0.0.1
+port: 4319
+userAgent: NamesResearch/0.1 (https://github.com/lambdawalker/ds.names.orchestrator)

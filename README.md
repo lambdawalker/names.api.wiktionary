@@ -167,3 +167,11 @@ npm run smoke
 ```
 
 Unit tests run offline; the optional smoke checks John's revision, Hebrew etymology, descendants and structured entries. It does not assert the etymological claims as independently verified. See `scripts/store-integration.mjs` for an optional compatibility check against a built sibling checkout of the research store.
+
+## Managed local API and in-memory credentials
+
+This project ships `config.default.yaml` (loopback port **4319**) and `npm run serve`. In managed mode, the orchestrator launches the service with a per-boot control credential, checks its boot identity and sends the provider credential to authenticated `POST /v1/credentials`. Keys are held in memory; none belong in YAML. `{"token":null}` clears the credential. Public providers do not need a provider token.
+
+`GET /v1/tools` lists tool definitions; `POST /v1/tools/TOOL_NAME` invokes the existing validated MCP tool. Both require the per-boot control credential. `GET /health` returns non-secret identity/readiness information. `npm run mcp:remote` is a stdio bridge to the local API, using `NAMES_SERVICE_URL` and `NAMES_CONTROL_TOKEN` in the supervising host's memory. The original standalone `npm run mcp` remains available for compatibility.
+
+Use the orchestrator vault/fleet setup to avoid managing plaintext provider-key files. The managed port registry overrides the standalone default port at launch. Credentials/caches are discarded on rotation or process exit; slow requests crossing credential rotation are refused. Browser origins are rejected and listeners bind only to IPv4 loopback. See [the orchestrator setup](https://github.com/lambdawalker/ds.names.orchestrator/blob/main/docs/local-services.md).
