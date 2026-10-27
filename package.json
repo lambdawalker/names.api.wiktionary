@@ -4,11 +4,28 @@
   "description": "Wiktionary and WiktAPI clients with revision-aware Markdown evidence for name research",
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=24" },
-  "repository": { "type": "git", "url": "https://github.com/lambdawalker/names.api.wiktionary.git" },
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
-  "bin": { "names-wiktionary": "./dist/cli.js" },
-  "files": ["dist", "README.md", "LICENSE"],
+  "engines": {
+    "node": ">=24"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lambdawalker/names.api.wiktionary.git"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "names-wiktionary": "./dist/cli.js",
+    "names-wiktionary-mcp": "./dist/mcp-stdio.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "prepare": "npm run build",
     "build": "tsc -p tsconfig.json",
@@ -17,8 +34,20 @@
     "test": "vitest run",
     "research": "node dist/cli.js",
     "smoke": "node scripts/smoke.mjs",
-    "store:integration": "node scripts/store-integration.mjs"
+    "store:integration": "node scripts/store-integration.mjs",
+    "mcp": "node dist/mcp-stdio.js"
   },
-  "dependencies": { "cheerio": "1.2.0", "turndown": "7.2.4", "zod": "4.6.7" },
-  "devDependencies": { "@types/node": "^24.0.0", "@types/turndown": "^5.0.0", "typescript": "7.0.2", "vitest": "5.0.5" }
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "cheerio": "1.2.0",
+    "turndown": "7.2.4",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@types/node": "^24.0.0",
+    "@types/turndown": "^5.0.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
 }
