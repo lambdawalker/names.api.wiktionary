@@ -64,7 +64,91 @@ Per client instance, requests are serial with a default 1-second minimum interva
 
 The transport retries HTTP 429/502/503/504 and MediaWiki `maxlag`/`ratelimited` up to twice, honoring Retry-After seconds/date. Automatic waits over 60 seconds stop with `SourceError.retryAfterMs`; the caller can checkpoint and resume later. Missing pages, malformed responses and transport failures have distinct error codes. Network failures/timeouts are returned to the caller without automatic retries.
 
-No implicit cache or raw archive is maintained. Let the orchestrator cache scoped search results and let [names.research.store](https://github.com/lambdawalker/names.research.store) retain Markdown evidence. Do not expire a cited document when expiring search results. WiktAPI supports `baseUrl` for HTTPS self-hosting or loopback HTTP tests.
+The library clients maintain no implicit cache or raw archive. The optional MCP adapter caches up to eight page observations in memory for five minutes, as described below. Let the orchestrator cache scoped search results and let [names.research.store](https://github.com/lambdawalker/names.research.store) retain Markdown evidence. Do not expire a cited document when expiring search results. WiktAPI supports `baseUrl` for HTTPS self-hosting or loopback HTTP tests.
+
+## Read-only MCP adapter
+
+The exported `createWiktionaryMcpServer(options)` builds an official `@modelcontextprotocol/server` 2.4.0 server. The stdio entry exposes only `get_page` and `search`, with Zod input validation and read-only annotations. It has no HTTP listener, storage operations, or database credentials. An orchestrator can continue importing `WiktionaryClient` directly; MCP is available for other agent harnesses.
+
+Build once, then start on Linux/Bash:
+
+```sh
+npm ci
+npm run build
+export WIKTIONARY_USER_AGENT='NamesResearch/0.1 (https://example.org/contact)'
+npm run mcp --silent
+# Or run Node directly, which avoids npm output on the protocol stream:
+node /absolute/path/names.api.wiktionary/dist/mcp-stdio.js
+```
+
+On Windows PowerShell:
+
+```powershell
+npm ci
+npm run build
+$env:WIKTIONARY_USER_AGENT = 'NamesResearch/0.1 (https://example.org/contact)'
+node C:\src\names.api.wiktionary\dist\mcp-stdio.js
+```
+
+After installing the package from a reviewed checkout, `names-wiktionary-mcp` is the equivalent bin. The process uses stdin/stdout exclusively for MCP; startup failures go to stderr. `npm run mcp` is useful locally, while a harness should invoke Node directly or the installed bin.
+
+For an MCP harness that accepts `mcpServers` JSON, use absolute paths and replace the contact URL:
+
+```json
+{
+  "mcpServers": {
+    "wiktionary": {
+      "command": "node",
+      "args": ["/absolute/path/names.api.wiktionary/dist/mcp-stdio.js"],
+      "env": {
+        "WIKTIONARY_USER_AGENT": "NamesResearch/0.1 (https://example.org/contact)"
+      }
+    }
+  }
+}
+```
+
+On Windows the JSON argument can be `"C:\\src\\names.api.wiktionary\\dist\\mcp-stdio.js"` and `command` can be the absolute path to `node.exe` when Node is absent from the harness's PATH. The host controls where this JSON belongs; stdio requires a host that can launch local processes.
+
+For Codex CLI's `config.toml`, the equivalent local stdio configuration is:
+
+```toml
+[mcp_servers.wiktionary]
+command = "node"
+args = ["/absolute/path/names.api.wiktionary/dist/mcp-stdio.js"]
+
+[mcp_servers.wiktionary.env]
+WIKTIONARY_USER_AGENT = "NamesResearch/0.1 (https://example.org/contact)"
+```
+
+Tool inputs and outputs:
+
+| Tool | Input | Result |
+| --- | --- | --- |
+| `get_page` | `title`, `edition` (default `en`), optional exact `language` heading, optional positive integer `revision`, `offset` (default `0`), `limit` (default `4000`, maximum `8000`) | JSON text containing a bounded `markdown` slice, canonical `title`, `edition`, `page_id`, `revision`, `language`, `locator`, `retrieved_at`, attribution/license, `total_units`, `next_offset` (`null` at the end), and section descriptors. |
+| `search` | `prefix`, `edition` (default `en`), optional `languageCode` | JSON text with at most 50 WiktAPI results, source/locator/retrieval metadata, explicit scope, `returned`, and `truncated`. Only `word`, `lang_code`, `lang`, and `pos` fields are projected. |
+
+`get_page` offsets and section `start`/`end` positions use UTF-16 code units (`offset_unit: "utf16"`), matching the library's `.slice()` convention. Section descriptors cover the whole selected Markdown and are capped at 100; `sections_total` and `sections_truncated` disclose omissions. Section display titles are capped at 256 UTF-16 units, with `metadata_truncated: true` when shortened. Canonical page titles over 256 units are rejected instead of changing their identity; source locators and fragment anchors are never shortened. The complete serialized tool result (including metadata, UTF-8 bytes, and JSON escaping) is capped at 64 KiB. Oversized page metadata, aggregate results, or search records produce a safe `response_too_large` error; search word identities are never silently truncated. Offset past the end returns empty Markdown and `next_offset: null`. It never returns the entire page automatically; follow `next_offset` explicitly.
+
+Each server instance keeps an LRU of at most eight pages for five minutes, keyed by requested title, edition, exact language heading and requested revision. Chunk reads reuse the original `retrieved_at`; cache reads refresh recency but do not extend expiry. Repeat the same selection and revision argument across chunks. For durable work, start with an explicit revision; changing from an omitted revision to an explicit one creates a separate cache entry. After eviction or expiry, compare `retrieved_at` and restart collection if it changed: rendered templates can change even at the same page revision. No page observations are written to disk.
+
+Provider failures return `isError: true` and JSON `{ "error": { "code": "not_found", "message": "..." } }` with safe static messages. Other source codes match `SourceError`; unexpected exceptions use `internal_error`. Invalid arguments use the SDK's validation error result. Raw upstream/internal exception messages are never returned. MCP request cancellation is forwarded to the client `signal`.
+
+To share transport instances or inject offline providers:
+
+```ts
+import { createWiktionaryMcpServer, WiktionaryClient, WiktApiClient } from '@lambdawalker/names-api-wiktionary';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
+
+const clientOptions = { userAgent: 'NamesResearch/0.1 (https://example.org/contact)' };
+const server = createWiktionaryMcpServer({
+  pageClient: new WiktionaryClient(clientOptions),
+  searchClient: new WiktApiClient(clientOptions),
+});
+await server.connect(new StdioServerTransport());
+```
+
+`WiktionaryMcpOptions` accepts `pageClient?: Pick<WiktionaryClient, 'getPage'>`, `searchClient?: Pick<WiktApiClient, 'search'>`, `clientOptions?: ClientOptions` (required when either provider is absent), and `now?: () => number` (millisecond cache clock, default `performance.now`). Passing `{ clientOptions }` creates both providers. The factory returns `McpServer`, so an embedding host owns its transport and lifecycle. Search is not cached; it remains a separate provider snapshot from live page evidence.
 
 ## Attribution and data rights
 

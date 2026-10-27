@@ -8,3 +8,5 @@ export { toDocumentInput } from './evidence.js';
 export { renderPage } from './markdown.js';
 export type { MarkdownSection, RenderedPage } from './markdown.js';
 export type { ClientOptions, SourceRecord, LookupOptions } from './types.js';
+export { createWiktionaryMcpServer } from './mcp.js';
+export type { WiktionaryMcpOptions } from './mcp.js';
