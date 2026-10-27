@@ -6,6 +6,8 @@ TypeScript/Node library for name research: retrieve revision-aware Wiktionary ev
 
 Requires Node.js 24 or newer.
 
+For Linux installation from a fresh machine, see the [Linux setup guide](docs/linux-setup.md), covering Ubuntu/Debian, Fedora, Node.js, Bash examples and optional storage verification. Windows PowerShell examples follow below.
+
 ```sh
 npm ci
 npm run build
