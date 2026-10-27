@@ -1,0 +1,47 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm pack --dry-run
+      - name: Verify clean Git package includes executable code
+        run: |
+          npm pack "git+file://$GITHUB_WORKSPACE#$GITHUB_SHA" --offline --dry-run --json > "$RUNNER_TEMP/names-git-package.json"
+          node --input-type=module - <<'JS'
+          import assert from 'node:assert/strict';
+          import { readFileSync } from 'node:fs';
+          const files = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/names-git-package.json', 'utf8'))[0].files.map(f => f.path);
+          assert(files.includes('dist/index.js'));
+          assert(files.includes('dist/cli.js'));
+          JS
+  store-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: lambdawalker/names.research.store
+          ref: f420d7ce22dd7b093692834d67d3afbdd1609459
+          path: research-store
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm ci --prefix research-store
+      - run: npm run build --prefix research-store
+      - run: npm run store:integration
+        env:
+          STORE_CHECKOUT: research-store

@@ -1,0 +1,10 @@
+export { WiktionaryClient } from './wiktionary.js';
+export type { PageData, PageOptions } from './wiktionary.js';
+export { WiktApiClient } from './wiktapi.js';
+export type { WordData, SearchData } from './wiktapi.js';
+export { SourceError } from './transport.js';
+export type { ErrorCode } from './transport.js';
+export { toDocumentInput } from './evidence.js';
+export { renderPage } from './markdown.js';
+export type { MarkdownSection, RenderedPage } from './markdown.js';
+export type { ClientOptions, SourceRecord, LookupOptions } from './types.js';
